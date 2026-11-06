@@ -239,6 +239,12 @@
           <input type="password" id="pfxPasswordInput" placeholder="Senha do certificado..." style="padding: 6px 10px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px; width: 160px;">
           <button class="btn-chrome-ok" onclick="uploadPfxCert()" style="padding: 6px 14px; font-size: 12px;">Carregar</button>
         </div>
+        <div style="margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 12px; color: #334155;">
+          <input type="checkbox" id="chkSaveInVault" checked style="cursor: pointer;">
+          <label for="chkSaveInVault" style="cursor: pointer;">
+            🔒 <strong>Salvar no Cofre Criptografado (AES-GCM)</strong> — Identifica automaticamente nas próximas visitas
+          </label>
+        </div>
         <div id="pfxErrorMsg" style="color: #e11d48; font-size: 12px; margin-top: 6px; display: none;"></div>
       </div>
 
@@ -270,6 +276,9 @@
   <footer class="app-footer">
     Monitor SEFAZ-RS &bull; Produção Real NFC-e e NF-e &bull; SVRS (43) &bull; Atualização a cada 3 minutos
   </footer>
+
+  <!-- Toast Flutuante de Notificação do Cofre Criptografado -->
+  <div id="vaultToast" style="display: none; position: fixed; bottom: 24px; right: 24px; z-index: 10000; background: #1b213b; border: 1px solid #5aff3d; color: #f8fafc; padding: 12px 20px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.6); font-size: 13px; font-weight: 500; align-items: center; gap: 10px; transition: opacity 0.3s ease;"></div>
 
   <script src="js/charts.js"></script>
   <script src="js/app.js"></script>

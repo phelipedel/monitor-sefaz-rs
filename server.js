@@ -495,6 +495,60 @@ function parsePfxCertificate(buffer, password = '') {
   }
 }
 
+/**
+ * Carrega e Descriptografa Certificado Digital A1 de Variáveis de Ambiente (AES-256-GCM ou Base64)
+ * Permite que o monitor na Vercel/Render/Nuvem já inicie 100% ativo com o certificado do cliente em RAM
+ */
+function loadCertificateFromEnvironment() {
+  try {
+    let pfxBuffer = null;
+    let password = process.env.SEFAZ_CERT_PASSWORD || '';
+
+    // 1. Criptografado com AES-256-GCM (Mais seguro)
+    if (process.env.SEFAZ_CERT_ENCRYPTED && process.env.SEFAZ_CERT_KEY) {
+      const crypto = require('crypto');
+      const parts = process.env.SEFAZ_CERT_ENCRYPTED.split(':');
+      if (parts.length === 3) {
+        const [ivHex, tagHex, dataHex] = parts;
+        const key = crypto.createHash('sha256').update(process.env.SEFAZ_CERT_KEY).digest();
+        const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(ivHex, 'hex'));
+        decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+        pfxBuffer = Buffer.concat([decipher.update(Buffer.from(dataHex, 'hex')), decipher.final()]);
+        console.log('🔒 [CERT VAULT] Certificado descriptografado com sucesso via AES-256-GCM!');
+      }
+    }
+    // 2. Base64 simples
+    else if (process.env.SEFAZ_CERT_BASE64) {
+      pfxBuffer = Buffer.from(process.env.SEFAZ_CERT_BASE64, 'base64');
+      console.log('📄 [CERT VAULT] Certificado carregado via Base64 de ambiente!');
+    }
+    // 3. Arquivo local
+    else if (process.env.SEFAZ_CERT_FILE && fs.existsSync(process.env.SEFAZ_CERT_FILE)) {
+      pfxBuffer = fs.readFileSync(process.env.SEFAZ_CERT_FILE);
+      console.log(`📁 [CERT VAULT] Certificado carregado do arquivo "${process.env.SEFAZ_CERT_FILE}"!`);
+    }
+
+    if (pfxBuffer) {
+      const parsed = parsePfxCertificate(pfxBuffer, password);
+      if (parsed.success) {
+        activeCert = {
+          buffer: pfxBuffer,
+          password: password,
+          info: parsed
+        };
+        console.log(`✅ [CERT VAULT] Certificado Ativo: ${parsed.commonName} (Emissor: ${parsed.emissor})`);
+      } else {
+        console.error('❌ [CERT VAULT] Falha ao analisar PFX do ambiente:', parsed.error);
+      }
+    }
+  } catch (err) {
+    console.error('⚠️ [CERT VAULT] Erro ao carregar certificado do ambiente:', err.message);
+  }
+}
+
+// Inicializa o cofre de certificado no servidor
+loadCertificateFromEnvironment();
+
 // ================= ROTAS DA API ================= //
 
 app.get('/api/installed-certs', async (req, res) => {

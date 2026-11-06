@@ -16,14 +16,165 @@ let appState = {
   selectedCert: null
 };
 
+// ================= COFRE CRIPTOGRAFADO NO NAVEGADOR (AES-GCM 256) ================= //
+const VAULT_STORAGE_KEY = 'sefaz_cert_vault_encrypted';
+const MACHINE_CHOICE_KEY = 'sefaz_machine_cert_choice';
+
+async function deriveVaultKey(salt) {
+  const enc = new TextEncoder();
+  const rawKey = enc.encode('SEFAZ_RS_BROWSER_VAULT_' + (window.location.host || 'localhost'));
+  const baseKey = await window.crypto.subtle.importKey('raw', rawKey, 'PBKDF2', false, ['deriveKey']);
+  return window.crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptCertToVault(fileBuffer, password) {
+  const salt = window.crypto.getRandomValues(new Uint8Array(16));
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveVaultKey(salt);
+
+  const payload = JSON.stringify({
+    pfxBase64: arrayBufferToBase64(fileBuffer),
+    password: password || ''
+  });
+
+  const encoded = new TextEncoder().encode(payload);
+  const cipherBuffer = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoded
+  );
+
+  return {
+    salt: arrayBufferToBase64(salt.buffer),
+    iv: arrayBufferToBase64(iv.buffer),
+    ciphertext: arrayBufferToBase64(cipherBuffer)
+  };
+}
+
+async function decryptCertFromVault(vaultObj) {
+  const salt = new Uint8Array(base64ToArrayBuffer(vaultObj.salt));
+  const iv = new Uint8Array(base64ToArrayBuffer(vaultObj.iv));
+  const cipherBuffer = base64ToArrayBuffer(vaultObj.ciphertext);
+  const key = await deriveVaultKey(salt);
+
+  const plainBuffer = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    cipherBuffer
+  );
+
+  const decoded = new TextDecoder().decode(plainBuffer);
+  return JSON.parse(decoded);
+}
+
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
+
+function base64ToArrayBuffer(base64) {
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+function showToast(message, duration = 3500) {
+  const toast = document.getElementById('vaultToast');
+  if (!toast) return;
+  toast.innerHTML = message;
+  toast.style.display = 'flex';
+  toast.style.opacity = '1';
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => {
+      toast.style.display = 'none';
+    }, 300);
+  }, duration);
+}
+
+async function tryRestoreCertFromBrowserVault() {
+  // Se o servidor já tem certificado ativo (ex: na mesma sessão)
+  if (appState.allStatus && appState.allStatus.certificate) {
+    updateCertificateCard(appState.allStatus.certificate);
+    return true;
+  }
+
+  // 1. Tenta restaurar do Cofre Criptografado (AES-GCM 256)
+  const vaultStr = localStorage.getItem(VAULT_STORAGE_KEY);
+  if (vaultStr) {
+    try {
+      showToast('🔒 Descriptografando certificado do cofre seguro...', 1500);
+      const vaultObj = JSON.parse(vaultStr);
+      const decrypted = await decryptCertFromVault(vaultObj);
+
+      const pfxArrayBuf = base64ToArrayBuffer(decrypted.pfxBase64);
+      const pfxBlob = new Blob([pfxArrayBuf], { type: 'application/x-pkcs12' });
+
+      const formData = new FormData();
+      formData.append('certFile', pfxBlob, 'vault-cert.pfx');
+      formData.append('password', decrypted.password || '');
+
+      const res = await fetch('/api/upload-cert', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      if (data.success) {
+        updateCertificateCard(data.certificate);
+        showToast(`🔒 Certificado <strong>"${data.certificate.commonName}"</strong> identificado automaticamente do cofre seguro!`, 4000);
+        return true;
+      }
+    } catch (err) {
+      console.warn('Falha ao restaurar do cofre criptografado:', err);
+    }
+  }
+
+  // 2. Se estiver em máquina Windows (localhost), tenta restaurar a escolha anterior da máquina
+  const machineChoice = localStorage.getItem(MACHINE_CHOICE_KEY);
+  if (machineChoice) {
+    try {
+      const choiceObj = JSON.parse(machineChoice);
+      const res = await fetch('/api/select-machine-cert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(choiceObj)
+      });
+      const data = await res.json();
+      if (data.success) {
+        updateCertificateCard(data.certificate);
+        showToast(`🪪 Certificado da máquina ativado automaticamente!`, 3000);
+        return true;
+      }
+    } catch (e) {}
+  }
+
+  return false;
+}
+
 // ================= INICIALIZAÇÃO ================= //
 document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
   await fetchStatus();
   startCountdownTimer();
 
-  // Ao entrar no site, carrega imediatamente a tela de seleção de certificado
-  await checkAndPromptCertificate(true);
+  // Tenta restaurar do Cofre Criptografado do Navegador primeiro
+  const restored = await tryRestoreCertFromBrowserVault();
+  if (!restored) {
+    // Se não tiver nenhum certificado salvo no cofre, abre o diálogo de seleção
+    await checkAndPromptCertificate(true);
+  }
 });
 
 function setupEventListeners() {
@@ -180,9 +331,15 @@ async function confirmCertSelection() {
     const data = await res.json();
 
     if (data.success) {
+      // Memoriza a escolha da máquina neste navegador
+      try {
+        localStorage.setItem(MACHINE_CHOICE_KEY, JSON.stringify(appState.selectedCert));
+      } catch (e) {}
+
       closeCertDialog();
       updateCertificateCard(data.certificate);
       await checkNow(true);
+      showToast(`🪪 Certificado da máquina memorizado para este navegador!`, 3500);
     }
   } catch (err) {
     alert('Erro ao ativar certificado: ' + err.message);
@@ -225,6 +382,7 @@ async function uploadPfxCert() {
   const fileInput = document.getElementById('pfxFileInput');
   const passInput = document.getElementById('pfxPasswordInput');
   const errorMsg = document.getElementById('pfxErrorMsg');
+  const chkSaveInVault = document.getElementById('chkSaveInVault');
 
   if (!fileInput.files.length) {
     errorMsg.innerText = 'Por favor, selecione um arquivo .pfx';
@@ -232,9 +390,12 @@ async function uploadPfxCert() {
     return;
   }
 
+  const file = fileInput.files[0];
+  const password = passInput.value;
+
   const formData = new FormData();
-  formData.append('certFile', fileInput.files[0]);
-  formData.append('password', passInput.value);
+  formData.append('certFile', file);
+  formData.append('password', password);
 
   try {
     errorMsg.style.display = 'none';
@@ -245,9 +406,21 @@ async function uploadPfxCert() {
     const data = await res.json();
 
     if (data.success) {
+      // Salva no Cofre Criptografado do Navegador (AES-GCM 256 bits)
+      if (!chkSaveInVault || chkSaveInVault.checked) {
+        try {
+          const fileBuffer = await file.arrayBuffer();
+          const vaultData = await encryptCertToVault(fileBuffer, password);
+          localStorage.setItem(VAULT_STORAGE_KEY, JSON.stringify(vaultData));
+        } catch (vaultErr) {
+          console.warn('Aviso ao criptografar no cofre local:', vaultErr);
+        }
+      }
+
       closeCertDialog();
       await fetchStatus();
-      alert(`Certificado "${data.certificate.commonName}" carregado e ativado com sucesso!`);
+      updateCertificateCard(data.certificate);
+      showToast(`🔒 Certificado ativado e protegido no <strong>Cofre Seguro do Navegador (AES-256)</strong>!`, 4500);
     } else {
       errorMsg.innerText = data.error || 'Erro ao validar certificado.';
       errorMsg.style.display = 'block';
@@ -259,11 +432,16 @@ async function uploadPfxCert() {
 }
 
 async function handleRemoveCert() {
-  if (confirm('Deseja desmarcar o certificado atual do monitoramento?')) {
+  if (confirm('Deseja desmarcar o certificado e limpar o cofre seguro deste navegador?')) {
+    try {
+      localStorage.removeItem(VAULT_STORAGE_KEY);
+      localStorage.removeItem(MACHINE_CHOICE_KEY);
+    } catch (e) {}
     await fetch('/api/clear-cert', { method: 'POST' });
     appState.selectedCert = null;
     await fetchStatus();
     updateCertCardWithoutCert();
+    showToast('🗑️ Certificado desmarcado e cofre seguro limpo.', 3000);
   }
 }
 
