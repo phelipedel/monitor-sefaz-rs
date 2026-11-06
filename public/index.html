@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitor SEFAZ-RS | Status NFC-e e NF-e Exclusivo Rio Grande do Sul</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%235aff3d'><circle cx='12' cy='12' r='10'/></svg>">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- ================= HEADER PRINCIPAL ================= -->
+  <header class="top-header">
+    <div class="header-left">
+      <!-- Seletor de Documentos Fiscais (NFCe e NFe para o RS) -->
+      <div class="doc-pills">
+        <button class="doc-btn active" data-doc="nfce">NFCe</button>
+        <button class="doc-btn" data-doc="nfe">NFe</button>
+      </div>
+
+      <div class="brand-badge">
+        <span class="status-dot"></span>
+        <span id="headerDocBadge">SEFAZ RS <strong>NFC-e</strong></span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <!-- Contador regressivo de 3 minutos -->
+      <div class="countdown-box" id="countdownBadge">
+        ⏱️ Próxima checagem: <strong>02:59</strong>
+      </div>
+
+      <!-- Dropdown de Tipo de Gráfico -->
+      <select class="select-custom" id="chartViewSelect">
+        <option value="line" selected>Gráfico de linha (Tempo real)</option>
+        <option value="hourly">Tempo médio de resposta por hora</option>
+        <option value="daily">Tempo médio de resposta por dia</option>
+      </select>
+
+      <!-- Botão de Verificação Manual Imediata -->
+      <button class="btn-primary" id="btnCheckNow">
+        ⚡ Verificar Agora
+      </button>
+
+      <!-- Botão para selecionar ou trocar certificado -->
+      <button class="btn-secondary" id="btnOpenCertModal">
+        🪪 Trocar Certificado
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= BANNER EXCLUSIVO DO RIO GRANDE DO SUL ================= -->
+  <div class="rs-exclusive-bar">
+    <div class="rs-badge-glow">
+      <span class="rs-flag-tag">RS</span>
+      <div class="rs-title-group">
+        <strong>SEFAZ RIO GRANDE DO SUL</strong>
+        <span id="bannerDocTitle">&bull; MONITORAMENTO EXCLUSIVO NFC-e</span>
+      </div>
+    </div>
+    <div class="rs-endpoint-info">
+      <span>Ambiente: <strong>Produção (SVRS 43)</strong></span>
+      <span style="opacity: 0.3">|</span>
+      <span>WebService: <code id="bannerEndpoint">nfce.svrs.rs.gov.br</code></span>
+    </div>
+  </div>
+
+  <!-- ================= CONTEÚDO PRINCIPAL ================= -->
+  <main class="main-container">
+
+    <!-- Card de Status do Certificado Digital Ativo -->
+    <section class="cert-card">
+      <div class="cert-info-group">
+        <div class="cert-icon-box" id="certStatusIcon">🪪</div>
+        <div class="cert-details">
+          <h4>
+            <span id="certName">Verificando certificados da máquina...</span>
+            <span class="cert-badge" id="certBadge">Aguardando</span>
+          </h4>
+          <p id="certDetails">
+            Conectando com o repositório de certificados para autenticação na SEFAZ RS.
+          </p>
+        </div>
+      </div>
+      <div class="cert-actions">
+        <button class="btn-primary" onclick="openCertDialog()">
+          Selecionar Certificado
+        </button>
+        <button class="btn-secondary" id="btnRemoveCert" style="display:none; color:#ff3d71; border-color:#ff3d71">
+          Desconectar
+        </button>
+      </div>
+    </section>
+
+    <!-- Métricas Rápidas (KPIs) -->
+    <section class="kpi-row">
+      <div class="kpi-card">
+        <span class="kpi-title">Status SEFAZ RS</span>
+        <div class="kpi-value" id="kpiStatus">
+          <span style="color:#5aff3d">●</span> 107 - Serviço em Operação
+        </div>
+        <span class="kpi-subtitle" id="kpiDocSubtitle">NFC-e Ambiente de Produção RS</span>
+      </div>
+
+      <div class="kpi-card">
+        <span class="kpi-title">Última Latência Real</span>
+        <div class="kpi-value" id="kpiLatency">
+          -- <span style="font-size:14px; font-weight:normal; color:#94a3b8">ms</span>
+        </div>
+        <span class="kpi-subtitle">Medição direta de rede</span>
+      </div>
+
+      <div class="kpi-card">
+        <span class="kpi-title">Média das Últimas 2h</span>
+        <div class="kpi-value" id="kpiAvg">
+          -- <span style="font-size:14px; font-weight:normal; color:#94a3b8">ms</span>
+        </div>
+        <span class="kpi-subtitle">Janela de 2h (3 em 3 min)</span>
+      </div>
+
+      <div class="kpi-card">
+        <span class="kpi-title">Disponibilidade</span>
+        <div class="kpi-value" id="kpiUptime" style="color:#5aff3d">
+          100.0%
+        </div>
+        <span class="kpi-subtitle">SVRS / SEFAZ RS Online</span>
+      </div>
+    </section>
+
+    <!-- Card Principal do Gráfico -->
+    <section class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title" id="chartTitle">Tempo de resposta - NFC-e (RS)</div>
+        
+        <!-- Legenda idêntica ao print da Tecnospeed -->
+        <div class="chart-legend">
+          <div class="legend-item normal">
+            <span class="legend-dot"></span> Normal
+          </div>
+          <div class="legend-item lento">
+            <span class="legend-dot"></span> Lento
+          </div>
+          <div class="legend-item muito-lento">
+            <span class="legend-dot"></span> Muito lento
+          </div>
+          <div class="legend-item erro">
+            <span class="legend-dot"></span> Erro
+          </div>
+          <div class="legend-item timeout">
+            <span class="legend-dot"></span> Timeout
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <canvas id="sefazChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Tabela de Últimas Checagens Reais -->
+    <section class="logs-card">
+      <div class="logs-header">
+        <h3 class="logs-title">Histórico de Verificações Reais da SEFAZ RS (A cada 3 minutos)</h3>
+      </div>
+      <div class="logs-table-wrapper">
+        <table class="logs-table">
+          <thead>
+            <tr>
+              <th>Horário</th>
+              <th>Documento</th>
+              <th>UF</th>
+              <th>Status SEFAZ</th>
+              <th>Tempo de Resposta</th>
+              <th>Classificação</th>
+            </tr>
+          </thead>
+          <tbody id="logsTableBody">
+            <!-- Povoado com dados reais -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================
+       MODAL NATIVO DE SELEÇÃO DE CERTIFICADO (CHROME / WINDOWS)
+       ======================================================== -->
+  <div class="modal-overlay" id="modalCert">
+    <div class="native-cert-dialog">
+      <div class="dialog-header">
+        <h3 class="dialog-title">Selecione um certificado</h3>
+        <button class="dialog-close" onclick="closeCertDialog()">&times;</button>
+      </div>
+
+      <div class="dialog-subtitle">
+        Selecione um certificado para se autenticar no <strong>www.sefaz.rs.gov.br:443</strong>
+      </div>
+
+      <!-- Tabela com os Certificados da Máquina -->
+      <div class="cert-table-container" id="certTableWrapper">
+        <table class="cert-table">
+          <thead>
+            <tr>
+              <th style="width: 48%">Tema</th>
+              <th style="width: 28%">Emissor</th>
+              <th style="width: 24%">Serial</th>
+            </tr>
+          </thead>
+          <tbody id="certTableBody">
+            <!-- Linhas dos certificados detectados na máquina -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Alerta caso NÃO tenha certificado na máquina -->
+      <div class="no-cert-state" id="noCertState" style="display: none;">
+        <div class="no-cert-icon">⚠️</div>
+        <div class="no-cert-title">Nenhum certificado digital encontrado na máquina</div>
+        <div class="no-cert-desc">
+          Não foi detectado nenhum certificado digital ICP-Brasil instalado no Windows desta máquina para se autenticar na SEFAZ-RS.
+        </div>
+        <div style="margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+          <button class="btn-chrome-info" onclick="checkInstalledCertsAgain()">
+            🔄 Verificar Novamente
+          </button>
+          <button class="upload-pfx-btn" onclick="togglePfxUpload()">
+            📁 Carregar Arquivo .PFX (A1)
+          </button>
+        </div>
+      </div>
+
+      <!-- Formulário Expansível para Upload de PFX -->
+      <div id="pfxUploadArea" style="display: none; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; margin-top: 6px;">
+        <div style="font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #1e293b;">Carregar Certificado A1 (.pfx / .p12):</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <input type="file" id="pfxFileInput" accept=".pfx,.p12" style="font-size: 12px; flex: 1;">
+          <input type="password" id="pfxPasswordInput" placeholder="Senha do certificado..." style="padding: 6px 10px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px; width: 160px;">
+          <button class="btn-chrome-ok" onclick="uploadPfxCert()" style="padding: 6px 14px; font-size: 12px;">Carregar</button>
+        </div>
+        <div id="pfxErrorMsg" style="color: #e11d48; font-size: 12px; margin-top: 6px; display: none;"></div>
+      </div>
+
+      <!-- Opção de upload caso tenha a tabela visível -->
+      <div class="upload-pfx-strip" id="pfxQuickStrip">
+        <span>Tem um arquivo <strong>.pfx</strong> (A1)? Você também pode carregar diretamente:</span>
+        <button class="upload-pfx-btn" onclick="togglePfxUpload()">Carregar .PFX</button>
+      </div>
+
+      <!-- Rodapé com Botões no Padrão do Print -->
+      <div class="dialog-footer">
+        <button class="btn-chrome-info" id="btnCertInfo" onclick="showCertDetails()">
+          Informações do certificado
+        </button>
+
+        <div class="dialog-actions-right">
+          <button class="btn-chrome-ok" id="btnConfirmCert" onclick="confirmCertSelection()">
+            OK
+          </button>
+          <button class="btn-chrome-cancel" onclick="closeCertDialog()">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    Monitor SEFAZ-RS &bull; Produção Real NFC-e e NF-e &bull; SVRS (43) &bull; Atualização a cada 3 minutos
+  </footer>
+
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
