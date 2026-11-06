@@ -10,7 +10,7 @@
   --border-color: #2a3359;
   --border-light: #394475;
 
-  /* Cores de Status da Tecnospeed */
+  /* Cores oficiais de Status e Latência */
   --color-normal: #5aff3d;      /* Verde Neon - Normal <= 2s */
   --color-lento: #ffd600;       /* Amarelo - Lento <= 5s */
   --color-muito-lento: #ff9100; /* Laranja - Muito lento < 30s */

@@ -56,7 +56,7 @@ const SEFAZ_ENDPOINTS = {
 };
 
 /**
- * Classifica a latência real nos 5 níveis padrão do monitor da Tecnospeed
+ * Classifica a latência real nos 5 níveis padrão de disponibilidade da SEFAZ
  */
 function classifyLatency(latencyMs, isError = false, isTimeout = false) {
   if (isTimeout) return { status: 'Timeout', label: 'Timeout: > 30s', color: '#b388ff', level: 4 };

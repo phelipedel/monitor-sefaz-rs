@@ -1,6 +1,6 @@
 # ⚡ Monitor SEFAZ-RS (NFC-e e NF-e) em Tempo Real
 
-Painel completo de monitoramento da **SEFAZ Rio Grande do Sul (RS)**, com foco em **NFC-e** e **NF-e**, construído com a mesma identidade visual do monitor da **TecnoSpeed** (Dark Theme com acentos em verde neon, classificação de latência em 5 níveis e visualização em tempo real, por hora e por dia).
+Painel moderno de monitoramento de alta precisão da **SEFAZ Rio Grande do Sul (RS)**, com foco exclusivo em **NFC-e** e **NF-e**, interface escura (Dark Theme) de alta legibilidade, classificação de latência em 5 níveis e visualização em tempo real, por hora e por dia.
 
 ---
 
@@ -14,7 +14,7 @@ Painel completo de monitoramento da **SEFAZ Rio Grande do Sul (RS)**, com foco e
   - Alerta visual caso o certificado esteja próximo do vencimento (< 30 dias) ou expirado.
   - Realiza requisições mTLS com o certificado do cliente.
   - Funciona também em **Modo Sonda Direta** caso nenhum certificado seja anexado.
-- 📊 **3 Visões de Gráficos (Idênticas à TecnoSpeed):**
+- 📊 **3 Visões de Gráficos Analíticos:**
   - **Tempo de resposta (Linha em tempo real):** Mostra oscilações minuto a minuto com pontos de medição.
   - **Tempo médio de resposta por hora (Barras):** Exibe a média horária (`05-00`, `05-01`, etc.) com cores dinâmicas.
   - **Tempo médio de resposta por dia (Barras):** Visão histórica dos últimos dias do mês.
