@@ -12,9 +12,13 @@ const PORT = process.env.PORT || 3000;
 const CHECK_INTERVAL_MS = 3 * 60 * 1000; // 3 minutos
 
 // Diretórios e persistência
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'data') : path.join(__dirname, 'data');
 const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+try {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+} catch (e) {
+  console.warn('Aviso: Não foi possível criar DATA_DIR:', e.message);
+}
 
 app.use(cors());
 app.use(express.json());
@@ -557,9 +561,21 @@ app.post('/api/select-machine-cert', (req, res) => {
   });
 });
 
-app.get('/api/status', (req, res) => {
-  const secondsToNextCheck = Math.max(0, Math.round((nextCheckTimestamp - Date.now()) / 1000));
+app.get('/api/status', async (req, res) => {
   const doc = req.query.doc === 'nfe' ? 'nfe' : 'nfce';
+
+  // Se for cold-start (ex: ambiente Serverless da Vercel) ou se já passou o tempo da próxima checagem
+  if (!lastCheckResults[doc] || Date.now() >= nextCheckTimestamp) {
+    try {
+      const liveRes = await querySefaz(doc);
+      recordCheckResult(liveRes);
+      nextCheckTimestamp = Date.now() + CHECK_INTERVAL_MS;
+    } catch (err) {
+      console.error('Erro na checagem on-demand:', err.message);
+    }
+  }
+
+  const secondsToNextCheck = Math.max(0, Math.round((nextCheckTimestamp - Date.now()) / 1000));
 
   res.json({
     activeDoc: doc,

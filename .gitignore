@@ -6,3 +6,5 @@ npm-debug.log*
 *.pfx
 *.p12
 data/history.json
+
+.vercel
