@@ -15,19 +15,12 @@ const CATEGORY_LEVELS = {
 };
 
 function latencyToLevel(latencyMs, isError = false, isTimeout = false) {
-  if (isTimeout) return 4.0;
-  if (isError) return 5.0;
-  // Variação proporcional suave dentro de cada faixa para refletir oscilações reais na linha
-  if (latencyMs <= 2000) {
-    return 1.0 + (Math.min(latencyMs, 2000) / 2000) * 0.35; // entre 1.0 e 1.35
-  }
-  if (latencyMs <= 5000) {
-    return 2.0 + ((latencyMs - 2000) / 3000) * 0.4; // entre 2.0 e 2.4
-  }
-  if (latencyMs < 30000) {
-    return 3.0 + ((latencyMs - 5000) / 25000) * 0.4; // entre 3.0 e 3.4
-  }
-  return 4.0;
+  if (isTimeout) return 4;
+  if (isError) return 5;
+  if (latencyMs <= 2000) return 1;
+  if (latencyMs <= 5000) return 2;
+  if (latencyMs < 30000) return 3;
+  return 4;
 }
 
 function getStatusColor(level) {
@@ -66,44 +59,36 @@ function renderChart(mode, data, docType = 'nfce') {
 }
 
 /**
- * 1. Gráfico de Linha em Tempo Real (Janela em torno das últimas 2 horas)
+ * 1. Gráfico de Linha em Tempo Real
  */
 function renderLineChart(ctx, points, docName) {
   const chartTitle = document.getElementById('chartTitle');
   if (chartTitle) {
-    chartTitle.innerHTML = `Tempo de resposta - <strong>${docName}</strong> (RS) <span style="font-size:12px; font-weight:normal; color:#94a3b8; margin-left:8px;">[Janela: Últimas 2h]</span>`;
+    chartTitle.innerText = `Tempo de resposta - ${docName} (RS)`;
   }
 
-  // Filtra as medições ocorridas dentro da janela das últimas 2 horas (120 minutos)
-  const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-  const now = Date.now();
-  const pointsIn2h = (points || []).filter(p => (now - new Date(p.timestamp).getTime()) <= TWO_HOURS_MS);
-
-  // Usa as medições das últimas 2h ou as últimas 40 medições
-  const displayPoints = pointsIn2h.length ? pointsIn2h : (points || []).slice(-40);
-
-  const labels = displayPoints.map(p => p.label);
-  const values = displayPoints.map(p => {
+  const labels = points.map(p => p.label);
+  const values = points.map(p => {
     return latencyToLevel(p.latencyMs, p.cStat === 'ERROR', p.cStat === 'TIMEOUT');
   });
-  const rawLatencies = displayPoints.map(p => p.latencyMs);
+  const rawLatencies = points.map(p => p.latencyMs);
 
   myChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: labels.length ? labels : ['Aguardando medições (Janela de 2h)...'],
+      labels: labels.length ? labels : ['Aguardando primeira medição...'],
       datasets: [{
-        label: `Tempo de resposta ${docName} (Últimas 2h)`,
+        label: `Tempo de resposta ${docName}`,
         data: values.length ? values : [null],
         borderColor: '#29b6f6',
         backgroundColor: 'rgba(41, 182, 246, 0.1)',
         borderWidth: 2.5,
         tension: 0.1,
-        pointBackgroundColor: values.map(v => Math.floor(v) >= 2 ? getStatusColor(Math.floor(v)) : '#29b6f6'),
+        pointBackgroundColor: '#29b6f6',
         pointBorderColor: '#1b213b',
         pointBorderWidth: 2,
-        pointRadius: values.map(v => Math.floor(v) >= 2 ? 7.5 : 5),
-        pointHoverRadius: 9,
+        pointRadius: 5,
+        pointHoverRadius: 8,
         fill: false
       }]
     },

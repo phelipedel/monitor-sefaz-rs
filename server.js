@@ -12,13 +12,9 @@ const PORT = process.env.PORT || 3000;
 const CHECK_INTERVAL_MS = 3 * 60 * 1000; // 3 minutos
 
 // Diretórios e persistência
-const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'data') : path.join(__dirname, 'data');
+const DATA_DIR = path.join(__dirname, 'data');
 const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
-try {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-} catch (e) {
-  console.warn('Aviso: Não foi possível criar DATA_DIR:', e.message);
-}
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 app.use(cors());
 app.use(express.json());
@@ -368,11 +364,7 @@ function recordCheckResult(result) {
     docType: doc
   });
 
-  // Mantém em torno das últimas 2 horas (40 checagens de 3 em 3 min = 120 minutos)
-  const MAX_REALTIME_POINTS = 40;
-  if (history[doc].realtime.length > MAX_REALTIME_POINTS) {
-    history[doc].realtime.shift();
-  }
+  if (history[doc].realtime.length > 60) history[doc].realtime.shift();
 
   // Atualiza médias por hora
   const dayStr = String(pointTime.getDate()).padStart(2, '0');
@@ -561,21 +553,9 @@ app.post('/api/select-machine-cert', (req, res) => {
   });
 });
 
-app.get('/api/status', async (req, res) => {
-  const doc = req.query.doc === 'nfe' ? 'nfe' : 'nfce';
-
-  // Se for cold-start (ex: ambiente Serverless da Vercel) ou se já passou o tempo da próxima checagem
-  if (!lastCheckResults[doc] || Date.now() >= nextCheckTimestamp) {
-    try {
-      const liveRes = await querySefaz(doc);
-      recordCheckResult(liveRes);
-      nextCheckTimestamp = Date.now() + CHECK_INTERVAL_MS;
-    } catch (err) {
-      console.error('Erro na checagem on-demand:', err.message);
-    }
-  }
-
+app.get('/api/status', (req, res) => {
   const secondsToNextCheck = Math.max(0, Math.round((nextCheckTimestamp - Date.now()) / 1000));
+  const doc = req.query.doc === 'nfe' ? 'nfe' : 'nfce';
 
   res.json({
     activeDoc: doc,
@@ -631,14 +611,10 @@ app.post('/api/clear-cert', (req, res) => {
   res.json({ success: true, message: 'Certificado desmarcado.' });
 });
 
-if (!process.env.VERCEL) {
-  app.listen(PORT, () => {
-    console.log(`=======================================================`);
-    console.log(`🚀 MONITOR REAL SEFAZ-RS EM PRODUÇÃO (SEM DADOS FALSOS)`);
-    console.log(`🌐 Acesso Web: http://localhost:${PORT}`);
-    console.log(`⏱️ Checagem Automática NFC-e e NF-e a cada 3 Minutos`);
-    console.log(`=======================================================`);
-  });
-}
-
-module.exports = app;
+app.listen(PORT, () => {
+  console.log(`=======================================================`);
+  console.log(`🚀 MONITOR REAL SEFAZ-RS EM PRODUÇÃO (SEM DADOS FALSOS)`);
+  console.log(`🌐 Acesso Web: http://localhost:${PORT}`);
+  console.log(`⏱️ Checagem Automática NFC-e e NF-e a cada 3 Minutos`);
+  console.log(`=======================================================`);
+});

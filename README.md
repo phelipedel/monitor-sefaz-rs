@@ -1,115 +1,78 @@
-# ⚡ Monitor SEFAZ-RS em Tempo Real (NFC-e e NF-e)
+# ⚡ Monitor SEFAZ-RS (NFC-e e NF-e) em Tempo Real
 
-[![Node.js](https://img.shields.io/badge/Node.js-v18%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Express-4.21-000000?logo=express&logoColor=white)](https://expressjs.com/)
-[![Chart.js](https://img.shields.io/badge/Chart.js-4.4-FF6384?logo=chartdotjs&logoColor=white)](https://www.chartjs.org/)
-[![SEFAZ RS](https://img.shields.io/badge/SEFAZ--RS-Produção%20(SVRS)-5aff3d)](https://dfe-portal.svrs.rs.gov.br/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-
-> Sistema web moderno de monitoramento de alta precisão para a **SEFAZ do Rio Grande do Sul (RS)**, com foco exclusivo em **NFC-e** e **NF-e**, tema escuro inspirado no portal da TecnoSpeed, detecção de **Certificado Digital ICP-Brasil na máquina** e **100% de dados reais em produção (sem simulações)**.
+Painel completo de monitoramento da **SEFAZ Rio Grande do Sul (RS)**, com foco em **NFC-e** e **NF-e**, construído com a mesma identidade visual do monitor da **TecnoSpeed** (Dark Theme com acentos em verde neon, classificação de latência em 5 níveis e visualização em tempo real, por hora e por dia).
 
 ---
 
-## 📸 Demonstração do Projeto
+## 🚀 Principais Recursos
 
-### 1. Dashboard em Tempo Real com Captura de Instabilidade
-O monitor captura latências exatas com precisão cirúrgica de milissegundos. Abaixo, um exemplo real de pico da SEFAZ RS atingindo **14.808 ms (14,8 segundos)**:
-
-![Dashboard NFC-e com Instabilidade](docs/images/dashboard-nfce-instabilidade.png)
-
----
-
-### 2. Alternância Dinâmica para NF-e
-Troca instantânea entre **NFC-e** e **NF-e**, com histórico, gráficos e métricas independentes para cada documento fiscal:
-
-![Dashboard NF-e](docs/images/dashboard-nfe.png)
-
----
-
-### 3. Por que a nossa consulta é superior à da TecnoSpeed?
-
-| Critério | Portal TecnoSpeed | **Nosso Monitor SEFAZ-RS** |
-| :--- | :--- | :--- |
-| **Diagnóstico de Lentidão** | Classifica genericamente como *"Erro"* | **Mostra a verdade:** Registrou exatos **14.808 ms** (SEFAZ online, porém congestionada) |
-| **Precisão** | Apenas faixas estáticas | **Milissegundos exatos ao vivo** (`125 ms`, `3.420 ms`, etc.) |
-| **Origem da Conexão** | Servidores da TecnoSpeed | **Direto da fonte oficial** (`svrs.rs.gov.br`) |
-| **Certificado Digital** | Certificado deles | **O seu próprio certificado** da sua máquina |
-| **Documentos** | Misturados na tela | **NFC-e e NF-e 100% separados e simultâneos** |
-
-![Comparativo TecnoSpeed](docs/images/tecnospeed-comparativo.jpg)
-
----
-
-## ✨ Principais Funcionalidades
-
-- ⏱️ **Motor Automático a cada 3 Minutos:** Mede continuamente a latência real de ida e volta dos WebServices de Produção do RS.
-- 🕒 **Janela Deslizante de 2 Horas:** Gráficos configurados para exibir as últimas medições em tempo real (últimos 120 minutos).
-- 🪪 **Validação de Certificado Digital ICP-Brasil (A1 e A3):**
-  - Detecta certificados instalados no Windows Store (`CurrentUser\My`).
-  - Permite carregar arquivos `.pfx`/`.p12` diretamente.
-  - Exibe Razão Social, CNPJ, Emissor, Validade e Dias Restantes com aviso de vencimento.
-- 🚦 **Classificação Oficial em 5 Níveis:**
+- ⏱️ **Motor de Checagem Automática a cada 3 Minutos:** Executa requisições contínuas contra o WebService de Produção da SEFAZ RS (SVRS), medindo a latência exata em milissegundos.
+- ⏳ **Contador Regressivo em Tempo Real:** Badge no topo com contador regressivo (`02:59...`) indicando a próxima checagem automática.
+- 🪪 **Validação de Certificado Digital (A1 / .pfx):**
+  - O usuário pode selecionar o certificado digital instalado na máquina.
+  - O sistema lê: **Razão Social**, **CNPJ**, **Emissor** (ex: Certisign, Serasa), **Validade** e **Dias Restantes**.
+  - Alerta visual caso o certificado esteja próximo do vencimento (< 30 dias) ou expirado.
+  - Realiza requisições mTLS com o certificado do cliente.
+  - Funciona também em **Modo Sonda Direta** caso nenhum certificado seja anexado.
+- 📊 **3 Visões de Gráficos (Idênticas à TecnoSpeed):**
+  - **Tempo de resposta (Linha em tempo real):** Mostra oscilações minuto a minuto com pontos de medição.
+  - **Tempo médio de resposta por hora (Barras):** Exibe a média horária (`05-00`, `05-01`, etc.) com cores dinâmicas.
+  - **Tempo médio de resposta por dia (Barras):** Visão histórica dos últimos dias do mês.
+- 🚦 **Classificação em 5 Níveis:**
   - 🟢 **Normal:** $\le$ 2s
   - 🟡 **Lento:** $\le$ 5s
   - 🟠 **Muito lento:** < 30s
+  - 🔴 **Erro**
   - 🟣 **Timeout:** > 30s
-  - 🔴 **Erro de Conexão**
-- 📊 **3 Modos de Visualização:** Gráfico de Linha (Tempo Real), Média por Hora e Média por Dia.
-- 💾 **Persistência Local:** Grava histórico real em JSON (`data/history.json`), sem perdas ao reiniciar.
+- 💾 **Persistência de Histórico:** Armazena o histórico em JSON (`data/history.json`) para que reinicializações não percam os dados coletados.
 
 ---
 
-## 🚀 Como Executar Localmente
+## 🛠️ Como Executar Localmente
 
 ### Opção 1: Atalho Rápido no Windows
-Dê um duplo clique no arquivo [`start.bat`](start.bat). Ele instalará dependências se necessário e abrirá `http://localhost:3000` no seu navegador.
+Basta dar um duplo clique no arquivo [`start.bat`](file:///c:/Users/Del/Desktop/Nova%20pasta%20(6)/Fontes/monitor-sefaz-rs/start.bat). Ele instalará as dependências caso necessário, iniciará o servidor e abrirá o navegador em `http://localhost:3000`.
 
 ### Opção 2: Via Terminal (Node.js)
 ```bash
-# Entrar na pasta
 cd monitor-sefaz-rs
-
-# Instalar dependências
 npm install
-
-# Iniciar servidor
 npm start
 ```
-Acesse no seu navegador: **[http://localhost:3000](http://localhost:3000)**
+Acesse no seu navegador: `http://localhost:3000`
 
 ---
 
-## ☁️ Como Hospedar na Nuvem
+## ☁️ Como Hospedar na Web
 
-### 🔺 Vercel (Recomendado)
-O projeto já inclui as configurações prontas em `vercel.json` e `api/index.js`:
-1. Faça push do projeto para o seu GitHub.
-2. Acesse [vercel.com](https://vercel.com) e clique em **"Add New Project"**.
-3. Importe o seu repositório do GitHub.
-4. Clique em **Deploy**! A Vercel provisionará a API Serverless e os arquivos estáticos automaticamente.
+Você pode hospedar este portal facilmente em qualquer serviço de nuvem:
 
-### 🌐 Netlify
-O projeto já conta com o arquivo `netlify.toml`:
-1. Conecte seu repositório no [netlify.com](https://netlify.com).
-2. O diretório de publicação já está definido como `public`.
-3. Clique em **Deploy Site**.
+### 1. Render (Recomendado - Gratuito)
+1. Crie uma conta no [render.com](https://render.com).
+2. Conecte seu repositório Git ou suba a pasta `monitor-sefaz-rs`.
+3. Escolha **Web Service** -> Runtime: **Node**.
+4. Build Command: `npm install`
+5. Start Command: `npm start`
 
-### 🐳 Docker / VPS / Render / Railway
-O repositório já inclui o [`Dockerfile`](Dockerfile) pronto:
-```bash
-docker build -t monitor-sefaz-rs .
-docker run -p 3000:3000 monitor-sefaz-rs
-```
+### 2. Railway
+1. Acesse [railway.app](https://railway.app).
+2. Crie um novo projeto a partir do repositório ou use o `Dockerfile` incluso.
+3. A porta 3000 será exposta automaticamente com HTTPS público.
 
----
-
-## 📡 WebServices da SEFAZ RS Monitorados
-* **NFC-e RS:** `https://nfce.svrs.rs.gov.br/ws/NfeStatusServico4/NfeStatusServico4.asmx`
-* **NF-e RS:** `https://nfe.svrs.rs.gov.br/ws/NfeStatusServico4/NfeStatusServico4.asmx`
-* **Ambiente:** Produção (código UF `43`)
-* **Protocolo:** SOAP 1.2 com payload `consStatServ` versão `4.00`
+### 3. VPS ou Servidor Dedicado (Linux / Windows Server)
+1. Instale o Node.js v18+.
+2. Suba os arquivos e use o **PM2** para manter o serviço rodando 24/7:
+   ```bash
+   npm install -g pm2
+   pm2 start server.js --name "monitor-sefaz-rs"
+   pm2 startup
+   pm2 save
+   ```
 
 ---
 
-## 📄 Licença
-Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
+## 📡 WebServices Monitorados
+- **NFC-e RS (SVRS):** `https://nfce.svrs.rs.gov.br/ws/NfeStatusServico4/NfeStatusServico4.asmx`
+- **NF-e RS:** `https://nfe.sefaz.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx`
+- **Código UF:** `43` (Rio Grande do Sul)
+- **Serviço SOAP:** `consStatServ` versão `4.00`
